@@ -66,6 +66,16 @@ class PokemonData:
 
 		return self.l_types
 
+	def human_readable(self):
+		"""
+		Returns the Pokemon data in human readable form, intended to be sent to
+		a user.
+		"""
+		s =  self.get_localised_name() + '\n'
+		s += 'Tipos: ' + (', '.join(self.get_localised_types())) + '\n'
+
+		return s
+
 
 pokemon_list = list()
 pokemon_sorted_id   = SortedCollection(key=lambda poke : poke.id)
