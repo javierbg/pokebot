@@ -40,10 +40,10 @@ def q_name(bot, update, args):
 def q_id(bot, update, args):
 	message = bot.send_message(chat_id=update.message.chat_id, text='Retomando información...')
 
-    if len(args) != 1 or (not args[0].isdigit()):
-        response = 'El comando /numero toma un solo argumento numérico'
-    else:
-        response = query(id=int(args[0]))
+	if (len(args) != 1) or (not args[0].isdigit()):
+		response = 'El comando /numero toma un solo argumento numérico'
+	else:
+		response = query(id=int(args[0]))
 
 	message.edit_text(text=response)
 

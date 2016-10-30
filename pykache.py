@@ -6,8 +6,10 @@ requests already made.
 import requests
 import bisect
 from sorted_collection import SortedCollection
+import pickle
 
 BASE_URL = "http://pokeapi.co/api/v2/"
+DATA_DIR = 'data/'
 LOCALE = 'es'
 
 class TypeData:
@@ -52,11 +54,14 @@ class PokemonData:
 
 	def get_localised_name(self):
 		if self.l_name is None:
-			r = requests.get(self.data['species']['url'])
-			names = r.json()['names']
+			species_id = self.data['species']['url'].split('/')[-2]
+			with open(DATA_DIR + 'pokemon-species/' + species_id, 'rb') as f:
+				data = pickle.load(f)
+			names = data['names']
 			for n in names:
 				if n['language']['name'] == LOCALE:
 					self.l_name = n['name']
+					break
 
 		return self.l_name
 
@@ -91,24 +96,27 @@ def insert_pokemon(pokemon):
 	pokemon_sorted_id.insert(pokemon)
 	pokemon_sorted_name.insert(pokemon)
 
-def get_pokemon_by_id(id):
+def get_pokemon_by_id(pid):
 	"""
 	Gets a Pokemon data given its id. Raises ValueError if the ID doesn't exist.
 	Raises AssertError if the value is not an integer.
 	"""
 
-	assert type(id) == int, "A Pokemon's ID must be an integer"
+	assert type(pid) == int, "A Pokemon's ID must be an integer"
 
 	try:
-		return pokemon_sorted_id.find(id)
+		return pokemon_sorted_id.find(pid)
 	except ValueError: # Data not requested
-		req = requests.get(BASE_URL + 'pokemon/' + str(id))
-		if req.status_code == 404:
-			raise ValueError
-
-		p = PokemonData(req.json())
-		insert_pokemon(p)
-		return p
+		try:
+			f = open(DATA_DIR + 'pokemon/' + str(pid), 'rb')
+		except FileNotFoundError:
+			raise ValueError # ID doesn't exist
+		else:
+			data = pickle.load(f)
+			f.close()
+			p = PokemonData(data)
+			insert_pokemon(p)
+			return p
 
 def get_pokemon_by_name(name):
 	"""
@@ -121,13 +129,16 @@ def get_pokemon_by_name(name):
 	try:
 		return pokemon_sorted_name.find(name)
 	except ValueError: # Data not requested
-		req = requests.get(BASE_URL + 'pokemon/' + name)
-		if req.status_code == 404:
-			raise ValueError
+		try:
+			f = open(DATA_DIR + 'pokemon/name/' + name, 'rb')
+		except FileNotFoundError:
+			raise ValueError # Name doesn't exist
+		else:
+			id = int(f.readline())
+			f.close()
 
-		p = PokemonData(req.json())
-		insert_pokemon(p)
-		return p
+	return get_pokemon_by_id(id)
+
 
 def insert_type(ptype):
 	type_list.append(ptype)
@@ -137,7 +148,7 @@ def insert_type(ptype):
 
 def get_type_by_name(name):
 	"""
-	Gets a Type data given its id. Raises ValueError if the name doesn't
+	Gets a Type data given its name. Raises ValueError if the name doesn't
 	exist. Raises AssertError if the argument is not a string.
 	"""
 
@@ -146,10 +157,14 @@ def get_type_by_name(name):
 	try:
 		return type_sorted_name.find(name)
 	except ValueError: # Data not requested
-		req = requests.get(BASE_URL + 'type/' + name)
-		if req.status_code == 404:
-			raise ValueError
+		try:
+			f = open(DATA_DIR + 'type/' + name, 'rb')
+		except FileNotFoundError:
+			raise ValueError # Name doesn't exist
+		else:
+			data = pickle.load(f)
+			f.close()
 
-		t = TypeData(req.json())
+		t = TypeData(data)
 		insert_type(t)
 		return t
