@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+import telegram
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters
 import logging
 
 import pykache
@@ -37,6 +38,30 @@ def q_name(bot, update, args):
 
 	message.edit_text(text=response)
 
+def q_fuzzy(bot, update):
+	search_term = update.message.text
+	results = pykache.fuzzy_find(search_term)
+
+	if len(results) == 0:
+		bot.send_message(chat_id=update.message.chat_id,
+		                 text='No se ha encontrado ninguna coincidencia')
+	elif len(results) == 1:
+		bot.send_message(chat_id=update.message.chat_id,
+		                 text=query(name=results[0]))
+	else:
+		response =  'Te refieres a...\n'
+		inline_keyboard_buttons = list()
+		for r in results:
+			button = telegram.InlineKeyboardButton(text=r.capitalize(),
+			                                       callback_data='name:{0}'.format(r))
+			inline_keyboard_buttons.append([button])
+		markup = telegram.InlineKeyboardMarkup(inline_keyboard_buttons)
+
+		bot.send_message(chat_id=update.message.chat_id,
+		                 text=response,
+						 reply_markup=markup)
+
+
 def q_id(bot, update, args):
 	message = bot.send_message(chat_id=update.message.chat_id, text='Retomando información...')
 
@@ -45,6 +70,13 @@ def q_id(bot, update, args):
 	else:
 		response = query(id=int(args[0]))
 
+	message.edit_text(text=response)
+
+def search_result_callback(bot,update):
+	cb = update.callback_query
+	chat_id = cb['message']['chat']['id']
+	message = bot.send_message(chat_id=chat_id, text='Retomando información...')
+	response = query(name=cb['data'].split(':')[1])
 	message.edit_text(text=response)
 
 if __name__ == '__main__':
@@ -68,6 +100,8 @@ if __name__ == '__main__':
 
 	dp.add_handler(CommandHandler("nombre", q_name, pass_args=True))
 	dp.add_handler(CommandHandler("id", q_id, pass_args=True))
+	dp.add_handler(CallbackQueryHandler(search_result_callback, pattern='name:(.*)'))
+	dp.add_handler(MessageHandler(Filters.text, q_fuzzy))
 
 	# Start the Bot
 	updater.start_polling()
