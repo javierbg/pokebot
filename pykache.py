@@ -134,10 +134,11 @@ def get_pokemon_by_name(name):
 		except FileNotFoundError:
 			raise ValueError # Name doesn't exist
 		else:
-			id = int(f.readline())
+			data = pickle.load(f)
 			f.close()
-
-	return get_pokemon_by_id(id)
+			p = PokemonData(data)
+			insert_pokemon(p)
+			return p
 
 
 def insert_type(ptype):
