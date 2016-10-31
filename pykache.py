@@ -23,8 +23,45 @@ ORDERED_STATS = {
 	'special-defense': 4,
 	'speed': 5,
 }
+MOVE_CLASS_SYMBOL = {
+	'physical' : 💥,
+	'special' : 🔵,
+	'status' : 🔶,
+}
 
 logger = logging.getLogger(__name__)
+
+class MoveData:
+	"""
+	Stores the data dictionary on all the Move's data returned by PokeAPI.
+	This dictionary is the same that is returned by requests.Request.json()
+	"""
+	def __init__(self, data):
+		self.data = data
+		self.name = data['name'] # Fetches the name to make searches faster
+
+		# Localised name
+		self.l_name = [n['name'] for n in data['names'] if n['language']['name'] == LOCALE][0]
+		self.move_class = data['damage_class']['name']
+		self.flavor_text = None
+
+	def get_localised_name(self):
+		return self.l_name
+
+	def get_flavor_text(self):
+		if self.flavor_text is None:
+			fts = self.data['flavor_text_entries']
+			for ft in fts:
+				if ft['language']['name'] == LOCALE and \
+				   ft['version_group']['name'] == VERSION:
+
+					self.flavor_text = ft['flavor_text']
+					break
+
+		return self.flavor_text
+
+	def human_readable(self):
+		r = self.get_localised_name() + '\n'
 
 class AbilityData:
 	"""
@@ -184,6 +221,9 @@ type_sorted_name = SortedCollection(key=lambda ptype : ptype.name)
 ability_list = list()
 ability_sorted_name = SortedCollection(key=lambda ability : ability.name)
 
+move_list = list()
+move_sorted_name = SortedCollection(key=lambda move : move.name)
+
 def insert_pokemon(pokemon):
 	pokemon_list.append(pokemon)
 
@@ -196,6 +236,12 @@ def insert_ability(ability):
 
 	#Create indices
 	ability_sorted_name.insert(ability)
+
+def insert_move(move):
+	move_list.append(move)
+
+	#Create indices
+	move_sorted_name.insert(move)
 
 def get_pokemon_by_id(pid):
 	"""
@@ -293,6 +339,29 @@ def get_ability_by_name(name):
 		a = AbilityData(data)
 		insert_ability(a)
 		return a
+
+def get_move_by_name(name):
+	"""
+	Gets a Move data given its name. Raises ValueError if the name doesn't
+	exist. Raises AssertError if the argument is not a string.
+	"""
+
+	assert type(name) == str, "A move's name must be a string"
+
+	try:
+		return move_sorted_name.find(name)
+	except ValueError: # Data not requested
+		try:
+			f = open(DATA_DIR + 'move/name/' + name, 'rb')
+		except FileNotFoundError:
+			raise ValueError # Name doesn't exist
+		else:
+			data = pickle.load(f)
+			f.close()
+
+		m = MoveData(data)
+		insert_movey(m)
+		return m
 
 # Fuzzy find
 search_dir = dict()
