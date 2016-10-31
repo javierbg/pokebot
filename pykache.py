@@ -23,10 +23,16 @@ ORDERED_STATS = {
 	'special-defense': 4,
 	'speed': 5,
 }
+
+MOVE_CLASS_NAMES = {
+	'physical' : 'Físico',
+	'special' : 'Especial',
+	'status' : 'Estado',
+}
 MOVE_CLASS_SYMBOL = {
-	'physical' : 💥,
-	'special' : 🔵,
-	'status' : 🔶,
+	'physical' : '\N{COLLISION SYMBOL}',
+	'special' : '\N{LARGE BLUE CIRCLE}',
+	'status' : '\N{LARGE ORANGE DIAMOND}',
 }
 
 logger = logging.getLogger(__name__)
@@ -43,6 +49,10 @@ class MoveData:
 		# Localised name
 		self.l_name = [n['name'] for n in data['names'] if n['language']['name'] == LOCALE][0]
 		self.move_class = data['damage_class']['name']
+		self.type = get_type_by_name(data['type']['name'])
+		self.power = data['power']
+		self.pp = data['pp']
+		self.accuracy = data['accuracy']
 		self.flavor_text = None
 
 	def get_localised_name(self):
@@ -61,7 +71,14 @@ class MoveData:
 		return self.flavor_text
 
 	def human_readable(self):
-		r = self.get_localised_name() + '\n'
+		r  = self.get_localised_name() + '\n'
+		r += 'Tipo: {0} , Clase: {1} {2}\n'\
+		     .format(self.type.get_localised_name(), MOVE_CLASS_NAMES[self.move_class], MOVE_CLASS_SYMBOL[self.move_class])
+
+		if self.move_class != 'status':
+			r += 'Potencia: {0} , Precisión: {1}\n'.format(self.power, self.accuracy)
+		r += self.get_flavor_text() + '\n'
+		return r
 
 class AbilityData:
 	"""
@@ -360,7 +377,7 @@ def get_move_by_name(name):
 			f.close()
 
 		m = MoveData(data)
-		insert_movey(m)
+		insert_move(m)
 		return m
 
 # Fuzzy find
@@ -376,9 +393,22 @@ for filename in files:
 	with open(path, 'rb') as f:
 		data = pickle.load(f)
 	localised_name = [n['name'] for n in data['names'] if n['language']['name'] == LOCALE][0]
-	varieties = [v['pokemon']['name'] for v in data['varieties']]
+	varieties = ['pokemon:' + v['pokemon']['name'] for v in data['varieties']]
 
 	search_dir[localised_name] = varieties
+
+# Idem for moves
+MOVES_DIR = 'data/move/'
+files = os.listdir(MOVES_DIR)
+files.remove('name')
+
+for filename in files:
+	path = MOVES_DIR + filename
+	with open(path, 'rb') as f:
+		data = pickle.load(f)
+	localised_name = [n['name'] for n in data['names'] if n['language']['name'] == LOCALE][0]
+
+	search_dir[localised_name] = ['move:' + data['name']]
 
 logger.info('Search terms created') #Doesn't work?
 

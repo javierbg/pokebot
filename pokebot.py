@@ -20,11 +20,13 @@ def query(**kwargs):
 			p = pykache.get_pokemon_by_id(kwargs['id'])
 		elif 'name' in kwargs:
 			p = pykache.get_pokemon_by_name(kwargs['name'])
+		elif 'move_name' in kwargs:
+			p = pykache.get_move_by_name(kwargs['move_name'])
 		else:
 			raise KeyError('A query accepts an id or a name as an argument')
 
-	except ValueError: # Raised by the pykache module if the Pokemon doesn't exist
-		return 'El Pokemon especificado no existe'
+	except ValueError: # Raised by the pykache module if the resource doesn't exist
+		return 'El recurso especificado no existe'
 
 	return p.human_readable()
 
@@ -46,14 +48,28 @@ def q_fuzzy(bot, update):
 		bot.send_message(chat_id=update.message.chat_id,
 		                 text='No se ha encontrado ninguna coincidencia')
 	elif len(results) == 1:
+		r = results[0]
+		result_type, result_title = r.split(':')
+		if result_type == 'pokemon':
+			reply = query(name=result_title)
+		elif result_type == 'move':
+			reply = query(move_name=result_title)
+
 		bot.send_message(chat_id=update.message.chat_id,
-		                 text=query(name=results[0]))
+		                 text=reply)
 	else:
 		response =  'Te refieres a...\n'
 		inline_keyboard_buttons = list()
+
+		format_result = {
+			'pokemon' : 'Pokemon: ',
+			'move' : 'Movimiento: ',
+		}
 		for r in results:
-			button = telegram.InlineKeyboardButton(text=r.capitalize(),
-			                                       callback_data='name:{0}'.format(r))
+			result_type, result_title = r.split(':')
+			button_text = format_result[result_type] + result_title.capitalize()
+			button = telegram.InlineKeyboardButton(text=button_text,
+			                                       callback_data='{0}'.format(r))
 			inline_keyboard_buttons.append([button])
 		markup = telegram.InlineKeyboardMarkup(inline_keyboard_buttons)
 
@@ -72,11 +88,18 @@ def q_id(bot, update, args):
 
 	message.edit_text(text=response)
 
-def search_result_callback(bot,update):
+def pokemon_search_callback(bot,update):
 	cb = update.callback_query
 	chat_id = cb['message']['chat']['id']
 	message = bot.send_message(chat_id=chat_id, text='Retomando información...')
 	response = query(name=cb['data'].split(':')[1])
+	message.edit_text(text=response)
+
+def move_search_callback(bot,update):
+	cb = update.callback_query
+	chat_id = cb['message']['chat']['id']
+	message = bot.send_message(chat_id=chat_id, text='Retomando información...')
+	response = query(move_name=cb['data'].split(':')[1])
 	message.edit_text(text=response)
 
 if __name__ == '__main__':
@@ -100,7 +123,8 @@ if __name__ == '__main__':
 
 	dp.add_handler(CommandHandler("nombre", q_name, pass_args=True))
 	dp.add_handler(CommandHandler("id", q_id, pass_args=True))
-	dp.add_handler(CallbackQueryHandler(search_result_callback, pattern='name:(.*)'))
+	dp.add_handler(CallbackQueryHandler(pokemon_search_callback, pattern='pokemon:(.*)'))
+	dp.add_handler(CallbackQueryHandler(move_search_callback, pattern='move:(.*)'))
 	dp.add_handler(MessageHandler(Filters.text, q_fuzzy))
 
 	# Start the Bot
